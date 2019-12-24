@@ -78,32 +78,32 @@ class Propagator1D(CorrelationFunction1D):
 		return corfnc;
 
 
-#SPEED THIS UP!
-#do in parallel: make threads in measure() that each do some prod's, and update a global prod
 class CorrelationFunction2D(Observable):
-	def __init__(self, sep, name = "corr fnc 2D"):
+	def __init__(self, sep, latticeSpacing, name = "corr fnc 2D"):
 		super(CorrelationFunction2D, self).__init__(name);
 		self.T = sep;
+		self.a = latticeSpacing;
 
-	#"extra statistics" NOT WORKING! -WHY????
+	#extra statistics: maybe they are screwed up...?
 	def measure(self, phi):
 		prod = 0.;
-		for t, x1, x2 in it.product(range(0,phi.dims[0]), range(0,phi.dims[1]), range(0,phi.dims[1])):
+		for t, x1, x2 in it.product(range(phi.dims[0]), range(phi.dims[1]), range(phi.dims[1])):
 			prod += phi[(t+self.T, x2)].value*phi[(t, x1)].value;
-
-		'''
+		#'''
 		#rotate for extra stats
-		for t1, t2, x in it.product(range(0,phi.dims[0]), range(0,phi.dims[0]), range(0,phi.dims[1])):
+		for t1, t2, x in it.product(range(phi.dims[0]), range(phi.dims[0]), range(phi.dims[1])):
 			prod += phi[(t2, x+self.T)].value*phi[(t1, x)].value;
 		#'''
 		
-		prod /= len(phi); #pretty sure this gets renormalized away anyway....
+		prod *= self.a**2 / (2*len(phi));#put lattice units back in???
 		return prod;
 
 
+#possibly parallelize this?
 class Propagator2D(CorrelationFunction2D):
-	def __init__(self, name = "prop 2D"):
-		super(Propagator2D, self).__init__(0, name);
+	def __init__(self, latticeSpacing = 1., name = "prop 2D"):
+		super(Propagator2D, self).__init__(sep = 0, latticeSpacing = latticeSpacing, name = name);
+		self.a = latticeSpacing;
 
 	def measure(self, phi):
 		corfnc = [0. for i in range(phi.dims[0])];
@@ -111,53 +111,38 @@ class Propagator2D(CorrelationFunction2D):
 			self.T = t;
 			corfnc[t] = super(Propagator2D, self).measure(phi);# I think this is how it works
 
-		#normalize  by autocorrelation
-		return numpy.asarray(corfnc)/corfnc[0];
-		#return numpy.asarray(corfnc);
+
+		return numpy.asarray(corfnc);#put lattice units back in
+
 
 #written so that propagators don't have to be rewritten
 class EffectiveMass:
-	def __init__(self, a, name = "eff mass"):
-		self.a = a;
+	def __init__(self, latticeSpacing = 1., name = "eff mass"):
+		self.a = latticeSpacing;
 
 	def measure(self, prop):
 		return (1./self.a)*numpy.log(numpy.abs(prop[:-1]/prop[1:]));
 
 #TODO:
-#MomentumPropagator2D: ?
 #Bootstrap: X
 #KLDivergence: X
 '''
 #log(P,Q): in physics context these are actions
 class KLDivergence:
-	def __init__(self, name = "KL div", logP, logQ):
+	def __init__(self, name = "KL div"):
 
-	def measure(ensemble, ):
+	def measure(ensembleP, logP, logQ):
 		
 '''
 
 #make this a matrix
 class MomentumPropagator2D(Observable):
-	def __init__(self, name = "mom prop 2D"):
+	def __init__(self, latticeSpacing = 1., name = "mom prop 2D"):
 		super(MomentumPropagator2D, self).__init__(name);
+		self.a = latticeSpacing;
 
 	def measure(self, phi):
-		momLat = numpy.fft.fft(phi.toNumpy());
-		momProp = numpy.zeros(momLat.shape, dtype = complex);
-		if phi.dims[1]%2 == 0:
-			dims1End = momDims[1]//2 +2;
-		else:
-			dims1End = momDims[1]//2 +1;
-		for i,j in it.product(range(phi.dims[0]), range(dims1End)):
-			 momProp[(i,j)]= momLat[(i,j)]*numpy.conj(momLat[(i,j)]);
-		#momProp /= momProp[(0,0)];
-		return momProp;
-
-		
-
-
-
-
-# 		call super.measure() on fft'd array
-# 		or
-# 		inherit CorrelationFunction2D instead, and make measure corfnc for specific momentum seps
+		momLat = numpy.fft.ifftn(phi.toNumpy())*len(phi);
+		momProp = momLat * numpy.conj(momLat);
+		momProp = numpy.real(momProp);
+		return momProp * self.a**2/len(phi);#put lattice units back in

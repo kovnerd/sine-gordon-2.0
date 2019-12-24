@@ -15,7 +15,7 @@ class HyperCubic:
         numSites = 1;
         for d in dims:
             numSites *= d;
-        self.sites = [Node() for i in range(numSites)];
+        self.sites = numpy.asarray([Node() for i in range(numSites)]);
         self.coords = [self.IndexToCoord(i) for i in range(numSites)];
         self.__buildNeighbors(); 
 

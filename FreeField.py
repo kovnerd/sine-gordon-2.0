@@ -14,7 +14,8 @@ class Action(ActionBase):
 		sumOverNeighbors = 0.;
 		for adj in phi_x.mu:
 			sumOverNeighbors += adj.value;
-		return self.beta*(0.5*((self.m*self.a)**2 + len(phi_x.mu))*phi_x.value**2 - phi_x.value*sumOverNeighbors);
+		quad = 0.5*(self.m**2 + len(phi_x.mu)/self.a**2);
+		return self.beta*self.a**(0.5*len(phi_x.mu))*(quad*phi_x.value**2 - sumOverNeighbors/self.a**2 * phi_x.value);
 
 	def total(self, phi):
 		totAction = 0.;
@@ -22,21 +23,21 @@ class Action(ActionBase):
 			sumOverNeighbors = 0.;
 			for adj in phi_x.mu:#sum over forward neighbors in total action
 				sumOverNeighbors += adj.value;
-			totAction += self.beta*(0.5*(2*len(phi.dims)+(self.m*self.a)**2)*phi_x.value**2 - phi_x.value*sumOverNeighbors);
+			totAction += self.beta*self.a**(len(phi.dims))*(0.5*(2*len(phi.dims)/self.a**2+(self.m)**2)*phi_x.value**2 - phi_x.value*sumOverNeighbors/self.a**2);
 		return totAction;
 
 	def force(self, phi_x):
 		sumOverNeighbors = 0.;
 		for adj in phi_x.mu:
 			sumOverNeighbors += adj.value;
-		return self.beta*((len(phi_x.mu) + (self.m*self.a)**2)*phi_x.value - sumOverNeighbors);
+		return self.beta*self.a**(0.5*len(phi_x.mu))*((len(phi_x.mu)/self.a**2 + (self.m)**2)*phi_x.value - sumOverNeighbors/self.a**2);
 
-	# "no ma" has a better picture: this will be the default from now on...
 	def prop(self, phi, momCoord): 
-		kOver2 = numpy.asarray([(numpy.pi*momCoord[i])/phi.dims[i] for i in range(len(momCoord))]);
-		return 1. / (self.beta*(4.0*numpy.dot(numpy.sin(kOver2), numpy.sin(kOver2))/(self.a)**2 + (self.m)**2));#no ma
-		#return 1./(self.beta*(4.0*numpy.dot(numpy.sin(kOver2), numpy.sin(kOver2)) + (self.m*self.a)**2));# with ma
-		
+		k = numpy.asarray([(2*numpy.pi*momCoord[i])/phi.dims[i] for i in range(len(momCoord))]);
+		#return len(phi) / (self.beta*(4.0*numpy.dot(numpy.sin(k/2), numpy.sin(k/2))/(self.a)**(2-len(phi.dims)) + (self.m)**2 * (self.a)**len(phi.dims)));
+		#return 1./ (self.beta*(4.0*numpy.dot(numpy.sin(k/2), numpy.sin(k/2))/(self.a)**(2-len(phi.dims)) + (self.m)**2 * (self.a)**len(phi.dims)));
+		return 1./ (self.beta*(4.0*numpy.dot(numpy.sin(k/2), numpy.sin(k/2))/(self.a)**(2) + (self.m)**2));
+
 	def weight(self, old, new, move=None):
 		deltaS = self.local(new) - self.local(old);
 		if(deltaS < 0):

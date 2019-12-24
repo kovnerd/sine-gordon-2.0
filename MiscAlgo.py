@@ -6,21 +6,12 @@ class FourierAcceleration2D:
 	def __init__(self):
 		pass;
 
-	#ENFORCES HERMITIAN SYMMETRY -> GENERATES REAL POS-SPACE FIELDS CORRECTLY
 	def update(self, theory):
 		dims = theory.field.dims;
+		a = theory.action.a;
 		momLat = numpy.zeros(dims, dtype = complex);
-		dims1End = dims[1]//2 + 1;
-		'''
-		if (dims[1] % 2 == 0):
-			dims1End = dims[1]//2 + 2;
-		else:
-			dims1End = dims[1]//2 + 1;
-		'''
+		dims1End = dims[1]//2 + 1;#correct for odd
 		for i, j in it.product(range(dims[0]), range(dims1End)):
-			#correct version 
-			#WORKS FOR ODD LENGTHS, NOT EVEN LENGTHS
-			#add extra check at boundary: if (i,j) < (dims[0]//2, dims[1]//2) do the other one???
 			if (i,j) <= (dims[0]//2, dims[1]//2):
 				mom = (i,j);
 			elif i <= dims[0]//2 and j > dims[1]//2:
@@ -29,33 +20,18 @@ class FourierAcceleration2D:
 				mom = (i-dims[0], j);
 			else:
 				mom = (i-dims[0], j-dims[1]);
-				
-			real = numpy.random.normal(loc = 0, scale = numpy.sqrt(theory.action.prop(theory.field, mom)));
-			imag = numpy.random.normal(loc = 0, scale = numpy.sqrt(theory.action.prop(theory.field, mom)));
-			
-			#enforce hermitian symmetry
-			if (i,j) == (0,0) or (i,j) == (dims[0]-i, dims[1]-j):
+			real = numpy.random.normal(loc = 0, scale = numpy.sqrt(len(theory.field)/(a**(len(dims)))*theory.action.prop(theory.field, mom)));
+			imag = numpy.random.normal(loc = 0, scale = numpy.sqrt(len(theory.field)/(a**(len(dims)))*theory.action.prop(theory.field, mom)));
+			#try dividing things by sqrt(2): works, BUT WHY???
+			if (i,j) == (0,0):
+				momLat[(i,j)] = numpy.complex(real, 0);
+			elif (i,j) == (dims[0]-i, dims[1]-j) or ((i,j) == (0, dims[1] - j)) or ((i,j) == (dims[0] - i, 0)):
 				momLat[(i,j)] = numpy.complex(real, 0);
 			else:
-				momLat[(i,j)] = numpy.complex(real, imag);
-				if i == 0 and j != 0: # first row leg
-					if j == dims[1] - j:
-						momLat[(i, j)] = numpy.complex(real, 0);
-					else:
-						momLat[(i, dims[1] - j)] = numpy.conjugate(momLat[(i,j)]);
-				elif i !=0 and j == 0: # vertical leg
-					if i == dims[0] - i:
-						momLat[(i, j)] = numpy.complex(real, 0);#make b[i,j] real
-					else:
-						momLat[(dims[0] - i, j)] = numpy.conjugate(momLat[(i, j)]); 
-				else: #body
-					momLat[(dims[0] - i, dims[1] - j)] = numpy.conjugate(momLat[(i, j)]); 
-		
-		newLat = numpy.fft.ifftn(momLat);
-		#print("imaginary part (should be 0's): \n" + str(numpy.imag(newLat)));
-		#print(newLat);
+				momLat[(i,j)] = numpy.complex(real, imag)/numpy.sqrt(2);
+			momLat[((dims[0]-i)%dims[0], (dims[1]-j)%dims[1])] = numpy.conjugate(momLat[(i,j)]);
+		newLat = numpy.fft.fftn(momLat)/len(theory.field);
 		newLat = numpy.real(newLat);
-		#print(newLat.shape);
 		theory.field.fromNumpy(newLat);
 
 class RandomGaussians:
